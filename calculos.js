@@ -32,27 +32,40 @@
     return p;
   }
 
+  // Pasajes y hospedaje usan `cobertura`; el resto usa `cobertura_otros` (si no hay, la misma).
+  function esBase(cat) { return cat === 'pasajes' || cat === 'hospedaje'; }
+  function coberturaDe(x, cat) {
+    if (!esBase(cat) && x.cobertura_otros && Object.keys(x.cobertura_otros).length) return x.cobertura_otros;
+    return x.cobertura || {};
+  }
+
   // Pasa la parte de las personas cubiertas (papá y mamá) a quienes las cubren.
-  function cargaDesdePartes(p, personas) {
+  // Devuelve {propio, cubre} por hermana: lo suyo y lo que pone por papá y mamá.
+  function detalleCarga(p, personas, cat) {
     var pagan = personas.filter(function (x) { return x.tipo === 'paga'; });
     var c = {};
-    pagan.forEach(function (x) { c[x.id] = 0; });
+    pagan.forEach(function (x) { c[x.id] = { propio: 0, cubre: 0 }; });
     personas.forEach(function (x) {
       var v = p[x.id] || 0;
       if (!v) return;
-      if (x.tipo === 'paga') { c[x.id] += v; return; }
-      var cob = x.cobertura || {}, keys = Object.keys(cob).filter(function (k) { return c.hasOwnProperty(k) && Number(cob[k]) > 0; });
+      if (x.tipo === 'paga') { if (c[x.id]) c[x.id].propio += v; return; }
+      var cob = coberturaDe(x, cat), keys = Object.keys(cob).filter(function (k) { return c.hasOwnProperty(k) && Number(cob[k]) > 0; });
       var tot = keys.reduce(function (s, k) { return s + Number(cob[k]); }, 0);
-      if (!keys.length || !tot) { pagan.forEach(function (y) { c[y.id] += v / (pagan.length || 1); }); return; }
-      keys.forEach(function (k) { c[k] += v * Number(cob[k]) / tot; });
+      if (!keys.length || !tot) { pagan.forEach(function (y) { c[y.id].cubre += v / (pagan.length || 1); }); return; }
+      keys.forEach(function (k) { c[k].cubre += v * Number(cob[k]) / tot; });
     });
     return c;
   }
-  function carga(m, viaje, personas) { return cargaDesdePartes(partes(m, viaje, personas), personas); }
+  function cargaDesdePartes(p, personas, cat) {
+    var d = detalleCarga(p, personas, cat), c = {};
+    Object.keys(d).forEach(function (k) { c[k] = d[k].propio + d[k].cubre; });
+    return c;
+  }
+  function carga(m, viaje, personas) { return cargaDesdePartes(partes(m, viaje, personas), personas, m.categoria); }
 
   function saldos(viaje, personas, movs) {
     var o = {};
-    personas.filter(function (x) { return x.tipo === 'paga'; }).forEach(function (x) { o[x.id] = { pago: 0, toca: 0, env: 0, rec: 0, net: 0 }; });
+    personas.filter(function (x) { return x.tipo === 'paga'; }).forEach(function (x) { o[x.id] = { pago: 0, toca: 0, propio: 0, cubre: 0, env: 0, rec: 0, net: 0 }; });
     movs.forEach(function (m) {
       if (m.tipo === 'pago') {
         if (o[m.de_id]) o[m.de_id].env += Number(m.monto);
@@ -60,8 +73,8 @@
         return;
       }
       if (o[m.pagador_id]) o[m.pagador_id].pago += enSoles(m, viaje);
-      var c = carga(m, viaje, personas);
-      Object.keys(c).forEach(function (k) { if (o[k]) o[k].toca += c[k]; });
+      var d = detalleCarga(partes(m, viaje, personas), personas, m.categoria);
+      Object.keys(d).forEach(function (k) { if (o[k]) { o[k].propio += d[k].propio; o[k].cubre += d[k].cubre; o[k].toca += d[k].propio + d[k].cubre; } });
     });
     Object.keys(o).forEach(function (k) { var x = o[k]; x.net = x.pago - x.toca + x.env - x.rec; });
     return o;
@@ -85,6 +98,6 @@
     return out;
   }
 
-  root.Calc = { enSoles: enSoles, partes: partes, carga: carga, cargaDesdePartes: cargaDesdePartes, saldos: saldos, liquidar: liquidar };
+  root.Calc = { enSoles: enSoles, partes: partes, carga: carga, cargaDesdePartes: cargaDesdePartes, detalleCarga: detalleCarga, coberturaDe: coberturaDe, esBase: esBase, saldos: saldos, liquidar: liquidar };
   if (typeof module !== 'undefined') module.exports = root.Calc;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -102,7 +102,7 @@ input.in,select.in{width:100%;min-width:0;border:1px solid var(--line);backgroun
 .mode{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:start;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;cursor:pointer}
 .mode .ic{grid-row:span 2;font-size:20px;line-height:1.2}
 .mode b{font-size:15px}
-.mode span.x{font-size:13px;color:var(--muted)}
+.mode span.desc{font-size:13px;color:var(--muted)}
 .mode[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
 .preview{background:var(--sunk);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px;font-size:15px}
 .preview .l{display:flex;justify-content:space-between;gap:8px;align-items:center}
