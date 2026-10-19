@@ -2,11 +2,13 @@
 
 App para registrar los gastos del viaje familiar y saber quién le debe a quién.
 
-- **Resumen**: tu saldo, cómo quedar a mano y en qué se fue la plata.
+- **Resumen**: tu saldo y de dónde sale, cómo quedar a mano, una sugerencia y en qué se fue la plata.
 - **Registrar**: gastos (con 6 formas de dividir) y pagos entre hermanas.
 - **Movimientos**: buscar, filtrar, editar y borrar.
-- **Personas**: saldo de cada una y porcentajes de quién cubre a papá y mamá.
-- **Ajustes**: tope de hospedaje por noche, tipo de cambio y código para invitar.
+- **Viaje**: agenda de vuelos, hospedajes y tours con fecha, hora y códigos de reserva; aviso de check-in pendiente; fotos de los pases (guardadas en Supabase Storage, privadas).
+- **Personas**: saldo de cada una y porcentajes de quién cubre a papá y mamá (pueden ser distintos para comidas, tours y traslados).
+- **Ajustes** (tocando tu inicial arriba): tope de hospedaje por noche, tipo de cambio y código para invitar.
+- **?**: guía rápida de cómo funcionan las cuentas.
 
 ## Cómo funciona el reparto
 
