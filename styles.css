@@ -234,6 +234,7 @@ textarea.in{min-height:72px;resize:vertical}
 .colors button[aria-pressed="true"]{border-color:var(--fg)}
 .kv{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:15px;margin:0}
 .kv dt{color:var(--muted)} .kv dd{margin:0;text-align:right}
+.card .kv dt b{color:var(--fg)}
 .kv .sub{padding-left:14px;font-size:14px}
 
 /* ---------- hoja (modal) ---------- */

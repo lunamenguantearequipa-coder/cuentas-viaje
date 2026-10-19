@@ -463,6 +463,13 @@
       '<section class="section"><h2>Invitar</h2><div class="card"><p style="margin:0">Pásales este código a tus hermanas. Entran a esta misma página, crean su cuenta y lo escriben.</p>' +
       '<div class="code num">' + esc(v.codigo) + '</div><button class="btn mango" type="button" id="copyCode">Copiar invitación</button>' +
       '<p class="muted small" style="margin:0;overflow-wrap:anywhere">Link: ' + esc(location.origin + location.pathname) + '</p></div></section>' +
+      '<section class="section"><h2>Asistente de WhatsApp</h2><div class="card"><p style="margin:0">Escríbanle por privado con estas frases:</p>' +
+      '<dl class="kv" style="font-size:14px"><dt><b>deuda</b></dt><dd>cuánto debes o te deben</dd><dt><b>saldos</b></dt><dd>cómo están las tres</dd>' +
+      '<dt><b>gasto 180 cena pagó camila todos</b></dt><dd>anota un gasto</dd><dt><b>pasé 200 a andrea</b></dt><dd>anota un pago</dd>' +
+      '<dt><b>borrar</b></dt><dd>deshace lo último</dd><dt><b>código atsa</b></dt><dd>código de una reserva</dd>' +
+      '<dt><b>agenda · hoy · mañana</b></dt><dd>lo que viene</dd><dt><b>checkin hecho atsa</b></dt><dd>marca el check-in</dd><dt><b>sugerencia</b></dt><dd>quién paga lo próximo</dd></dl>' +
+      '<p class="muted small" style="margin:0">También avisa solo: el check-in un día antes, la hora de salir y a quién le conviene pagar ese día. Cada una tiene que tener su WhatsApp en Personas → Editar. ' +
+      'Con WhatsApp: ' + esc(lista(pagan().filter(function (p) { return p.telefono; }).map(function (p) { return p.nombre; })) || 'nadie todavía') + '.</p></div></section>' +
       '<section class="section"><h2>Tu cuenta</h2><div class="card"><div class="small muted">Entraste como</div><div style="overflow-wrap:anywhere"><b>' + esc(S.user && S.user.email) + '</b>' + (me ? ' · eres <b>' + esc(me.nombre) + '</b>' : '') + '</div>' +
       '<div class="actions"><button class="btn sm ghost" type="button" id="cambiarYo">Cambiar quién soy</button><button class="btn sm ghost" type="button" id="salir">Cerrar sesión</button></div></div></section></div>';
   }
@@ -666,6 +673,7 @@
     var h = '<div class="sheet-head"><h2 id="sheetTitle">' + (base ? 'Editar persona' : 'Agregar persona') + '</h2>' + X + '</div>' +
       '<form id="fPer" novalidate style="display:flex;flex-direction:column;gap:14px">' +
       '<label class="f" for="pNombre">Nombre<input class="in" id="pNombre" value="' + esc(P.nombre) + '" autocomplete="off"></label>' +
+      '<label class="f" for="pTel">WhatsApp (para el asistente)<input class="in" id="pTel" type="tel" inputmode="tel" value="' + esc(P.telefono || '') + '" placeholder="Ej.: 987 654 321" autocomplete="off"><span class="xs muted" style="font-weight:400">Opcional. Con esto el asistente de WhatsApp sabe quién le escribe.</span></label>' +
       '<div class="f">Color<div class="colors" role="group">' + COLORS.map(function (c) { return '<button type="button" data-pcolor="' + c + '" style="--c:' + c + '" aria-pressed="' + (P.color === c) + '" aria-label="Color ' + c + '"></button>'; }).join('') + '</div></div>' +
       '<div class="seg" role="group" aria-label="Tipo"><button type="button" data-ptipo="paga" aria-pressed="' + (P.tipo === 'paga') + '">Paga su parte</button><button type="button" data-ptipo="cubierta" aria-pressed="' + (P.tipo === 'cubierta') + '">La cubren otras</button></div>' +
       (P.tipo === 'cubierta' ? '<div class="note">Quién la cubre se cambia en Personas → <b>Cambiar porcentajes</b>.</div>' : '') +
@@ -679,7 +687,10 @@
   async function guardarPersona() {
     P.nombre = document.getElementById('pNombre').value.trim();
     if (!P.nombre) { toast('Escribe el nombre.'); return; }
-    var row = { nombre: P.nombre, tipo: P.tipo, color: P.color };
+    var tel = document.getElementById('pTel').value.replace(/\D/g, '');
+    if (tel.length === 9 && tel.charAt(0) === '9') tel = '51' + tel;
+    if (tel && tel.length < 10) { toast('Revisa el WhatsApp: escribe el número completo (9 dígitos en Perú).'); return; }
+    var row = { nombre: P.nombre, tipo: P.tipo, color: P.color, telefono: tel || null };
     if (P.tipo === 'cubierta' && !Object.keys(P.cobertura || {}).length) {
       var otra = cubiertas().find(function (c) { return c.id !== P.id; });
       if (otra) { row.cobertura = otra.cobertura || {}; row.cobertura_otros = otra.cobertura_otros || {}; }
