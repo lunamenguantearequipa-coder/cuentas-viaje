@@ -1,6 +1,8 @@
 (function () {
   'use strict';
-  var sb = window.supabase.createClient(window.CONFIG.supabaseUrl, window.CONFIG.supabaseKey);
+  // La sesión se guarda en el celular y se renueva sola: solo se pide entrar una vez por dispositivo.
+  var sb = window.supabase.createClient(window.CONFIG.supabaseUrl, window.CONFIG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
   var app = document.getElementById('app');
   var sheet = document.getElementById('sheet');
 
