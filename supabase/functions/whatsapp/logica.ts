@@ -366,31 +366,42 @@ export function responder(c: Ctx, texto: string): Respuesta {
 }
 
 /* ---------------- avisos automáticos (se revisan cada hora) ---------------- */
-export type Aviso = { clave: string; persona_id: string; telefono: string; texto: string };
+// Cada aviso trae texto para WhatsApp (texto) y para notificación del celular (titulo, cuerpo, url).
+export type Aviso = { clave: string; persona_id: string; telefono: string; texto: string; titulo: string; cuerpo: string; url: string };
 export function avisos(c: Ctx, ahora: { fecha: string; hora: string }): Aviso[] {
   const out: Aviso[] = [];
-  const con = (ids: string[]) => c.personas.filter((p) => p.telefono && ids.indexOf(p.id) >= 0);
+  const con = (ids: string[]) => c.personas.filter((p) => ids.indexOf(p.id) >= 0);
   const manana = sumarDias(ahora.fecha, 1);
   const hora = ahora.hora;
   // 1) Check-in: el día anterior desde las 9:00
   if (hora >= '09:00') c.reservas.filter((r) => r.checkin_requerido && !r.checkin_hecho && r.recordar_checkin !== false && r.fecha === manana).forEach((r) => {
     const cs = codigos(r);
-    con(r.quienes || []).forEach((p) => out.push({ clave: 'ck:' + r.id + ':' + p.id, persona_id: p.id, telefono: p.telefono,
-      texto: '✈️ ' + p.nombre + ', mañana es *' + r.titulo + '*' + (r.hora ? ' a las ' + hhmm(r.hora) : '') + (ruta(r) ? ' (' + ruta(r) + ')' : '') + '. ¡Toca hacer el check-in!' + (cs.length ? ' Código: *' + cs.join('* · *') + '*.' : '') + ' Cuando esté listo, escribe *checkin hecho*.' }));
+    con(r.quienes || []).forEach((p) => out.push({ clave: 'ck:' + r.id + ':' + p.id, persona_id: p.id, telefono: p.telefono || '',
+      texto: '✈️ ' + p.nombre + ', mañana es *' + r.titulo + '*' + (r.hora ? ' a las ' + hhmm(r.hora) : '') + (ruta(r) ? ' (' + ruta(r) + ')' : '') + '. ¡Toca hacer el check-in!' + (cs.length ? ' Código: *' + cs.join('* · *') + '*.' : '') + ' Cuando esté listo, escribe *checkin hecho*.',
+      titulo: '✈️ Toca hacer el check-in · ' + r.titulo,
+      cuerpo: 'Mañana' + (r.hora ? ' a las ' + hhmm(r.hora) : '') + (ruta(r) ? ' · ' + ruta(r) : '') + '.' + (cs.length ? ' Código: ' + cs.join(' · ') + '.' : '') + ' Cuando lo hagas, márcalo en la app.',
+      url: '#res=' + r.id }));
   });
   // 2) Hora de salir: hasta 90 min antes
   c.reservas.filter((r) => r.fecha === ahora.fecha && r.hora_salida).forEach((r) => {
     const [h, m] = hhmm(r.hora_salida).split(':').map(Number), [H, M] = hora.split(':').map(Number);
     const falta = h * 60 + m - (H * 60 + M);
-    if (falta >= 0 && falta <= 90) con(r.quienes || []).forEach((p) => out.push({ clave: 'sal:' + r.id + ':' + p.id, persona_id: p.id, telefono: p.telefono,
-      texto: '🚕 ' + p.nombre + ', a las *' + hhmm(r.hora_salida) + '* toca salir para *' + r.titulo + '*' + (r.hora ? ' (' + hhmm(r.hora) + ')' : '') + '.' + (codigos(r).length ? ' Código: *' + codigos(r).join('* · *') + '*.' : '') }));
+    const cs = codigos(r);
+    if (falta >= 0 && falta <= 90) con(r.quienes || []).forEach((p) => out.push({ clave: 'sal:' + r.id + ':' + p.id, persona_id: p.id, telefono: p.telefono || '',
+      texto: '🚕 ' + p.nombre + ', a las *' + hhmm(r.hora_salida) + '* toca salir para *' + r.titulo + '*' + (r.hora ? ' (' + hhmm(r.hora) + ')' : '') + '.' + (cs.length ? ' Código: *' + cs.join('* · *') + '*.' : ''),
+      titulo: '🚕 A las ' + hhmm(r.hora_salida) + ' toca salir',
+      cuerpo: r.titulo + (r.hora ? ' sale a las ' + hhmm(r.hora) : '') + '.' + (cs.length ? ' Código: ' + cs.join(' · ') + '.' : ''),
+      url: '#res=' + r.id }));
   });
   // 3) Sugerencia del día (solo durante el viaje, a mediodía, si alguien debe S/ 200 o más)
   const fechas = c.reservas.flatMap((r) => [r.fecha, r.fecha_fin]).filter(Boolean).sort();
   if (fechas.length && ahora.fecha >= fechas[0] && ahora.fecha <= fechas[fechas.length - 1] && hora >= '12:00') {
     const d = sugerencia(c);
-    if (d && d.v >= 200 && d.p.telefono) out.push({ clave: 'sug:' + c.viaje.id + ':' + ahora.fecha, persona_id: d.p.id, telefono: d.p.telefono,
-      texto: '💡 ' + d.p.nombre + ', te recomiendo pagar tú la comida o el taxi de hoy: así no se te acumula. Vas debiendo ' + fmt(d.v) + '. Cuando pagues, anótalo aquí: *gasto 120 cena todos*.' });
+    if (d && d.v >= 200) out.push({ clave: 'sug:' + c.viaje.id + ':' + ahora.fecha, persona_id: d.p.id, telefono: d.p.telefono || '',
+      texto: '💡 ' + d.p.nombre + ', te recomiendo pagar tú la comida o el taxi de hoy: así no se te acumula. Vas debiendo ' + fmt(d.v) + '. Cuando pagues, anótalo aquí: *gasto 120 cena todos*.',
+      titulo: '💡 ' + d.p.nombre + ', hoy te conviene invitar',
+      cuerpo: 'Si pagas la comida o el taxi de hoy, no se te acumula lo que debes (' + fmt(d.v) + '). Luego anótalo en la app.',
+      url: '#resumen' });
   }
   return out;
 }

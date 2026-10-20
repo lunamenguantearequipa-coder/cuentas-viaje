@@ -101,6 +101,7 @@ async function correrAvisos() {
   for (const v of vs.data || []) {
     const ctx = await cargar(v.id, null);
     for (const a of avisos(ctx, ah)) {
+      if (!a.telefono) continue;
       const claim = await sb.from('bot_avisos').insert({ clave: a.clave });
       if (claim.error) continue; // ya se envió antes
       const r = await enviar(a.telefono, a.texto);
