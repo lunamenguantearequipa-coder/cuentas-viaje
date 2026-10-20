@@ -35,7 +35,8 @@ async function push(filtro: { personas?: string[]; user?: string }, payload: { t
       res.push({ id: s.id, ok: true });
     } catch (e: any) {
       const code = e?.statusCode;
-      if (code === 404 || code === 410) await sb.from('push_subs').delete().eq('id', s.id);
+      const cuerpo = String(e?.body || '');
+      if (code === 404 || code === 410 || (code === 400 && /BadWebPushToken|BadDeviceToken/.test(cuerpo))) await sb.from('push_subs').delete().eq('id', s.id);
       console.error('push error', code, String(e?.body || e?.message || e).slice(0, 300));
       res.push({ id: s.id, ok: false, code });
     }

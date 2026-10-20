@@ -211,9 +211,98 @@
     suscribir();
     if (!yo()) { whoView(); return; }
     render();
-    primeraVez();
+    if (!abrirHash(location.hash)) primeraVez();
+    refrescarPush();
   }
   function primeraVez() { if (!store('guiaVista')) { store('guiaVista', '1'); guia(); } }
+
+  /* ================= AVISOS EN EL CELULAR (Web Push) ================= */
+  var PUSH = { estado: '' }; // instalar | no-soportado | bloqueado | off | on
+  function esIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+  function instalada() { return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+    navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.abrir != null) abrirHash(e.data.abrir); });
+  }
+  async function estadoPush() {
+    if (esIOS() && !instalada()) return 'instalar';
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return esIOS() ? 'instalar' : 'no-soportado';
+    if (Notification.permission === 'denied') return 'bloqueado';
+    try {
+      var reg = await navigator.serviceWorker.getRegistration();
+      var sub = reg && await reg.pushManager.getSubscription();
+      return sub ? 'on' : 'off';
+    } catch (e) { return 'off'; }
+  }
+  async function refrescarPush() {
+    var antes = PUSH.estado;
+    PUSH.estado = await estadoPush();
+    if (PUSH.estado === 'on') guardarSub(); // por si cambió de persona o se renovó
+    if (antes !== PUSH.estado && document.querySelector('.shell') && sheet.hidden && (S.tab === 'resumen' || S.tab === 'ajustes')) { var y = window.scrollY; render(); window.scrollTo(0, y); }
+  }
+  function b64u8(s) { var p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  async function guardarSub(sub) {
+    try {
+      if (!sub) { var reg = await navigator.serviceWorker.getRegistration(); sub = reg && await reg.pushManager.getSubscription(); }
+      if (!sub || !yo()) return false;
+      var j = sub.toJSON();
+      var r = await sb.from('push_subs').upsert({ viaje_id: S.viaje.id, persona_id: yo().id, user_id: S.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, dispositivo: esIOS() ? 'iPhone' : (navigator.platform || 'web') }, { onConflict: 'endpoint' });
+      if (r.error) { toast(errTxt(r.error)); return false; }
+      return true;
+    } catch (e) { return false; }
+  }
+  async function activarPush(btn) {
+    // En iPhone el permiso hay que pedirlo apenas se toca el botón.
+    var perm;
+    try { perm = await Notification.requestPermission(); } catch (e) { perm = 'default'; }
+    if (perm !== 'granted') { PUSH.estado = perm === 'denied' ? 'bloqueado' : 'off'; render(); toast(perm === 'denied' ? 'Bloqueaste los avisos. Puedes permitirlos en los Ajustes del celular.' : 'No se activaron los avisos.'); return; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Activando…'; }
+    try {
+      var reg = await navigator.serviceWorker.register('sw.js'); await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u8(window.CONFIG.vapidPublic) });
+      if (!(await guardarSub(sub))) throw new Error('No se pudo guardar');
+      PUSH.estado = 'on'; render(); toast('¡Avisos activados! Te mandamos uno de prueba.');
+      probarPush(true);
+    } catch (e) { PUSH.estado = await estadoPush(); render(); toast('No se pudieron activar los avisos: ' + errTxt(e)); }
+  }
+  async function probarPush(silencioso) {
+    var r = await sb.functions.invoke('avisos', { body: { accion: 'prueba' } });
+    if (silencioso) return;
+    if (r.error) { toast('No se pudo mandar la prueba.'); return; }
+    toast(r.data && r.data.enviados ? 'Listo: revisa tu celular en unos segundos.' : 'No encontramos tu celular. Desactiva y vuelve a activar los avisos.');
+  }
+  async function desactivarPush() {
+    try {
+      var reg = await navigator.serviceWorker.getRegistration(), sub = reg && await reg.pushManager.getSubscription();
+      if (sub) { await sb.from('push_subs').delete().eq('endpoint', sub.endpoint); await sub.unsubscribe(); }
+    } catch (e) {}
+    PUSH.estado = 'off'; render(); toast('Avisos desactivados en este celular.');
+  }
+  function tarjetaPush() {
+    var e = PUSH.estado, h = '<section class="section"><h2>Avisos en tu celular</h2><div class="card">';
+    var que = '<span class="muted small">Te avisa el check-in un día antes, la hora de salir al aeropuerto, cuando otra anota un gasto y a quién le conviene pagar ese día.</span>';
+    if (e === 'on') h += '<div style="display:flex;align-items:center;gap:10px"><span class="pill ok">✓ Activados</span><span class="small">en este celular</span></div>' + que +
+      '<div class="actions"><button class="btn sm soft" type="button" data-pushprueba="1">Mandar aviso de prueba</button><button class="btn sm ghost" type="button" data-pushoff="1">Desactivar</button></div>';
+    else if (e === 'instalar') h += '<b>Primero, agrega la app a tu pantalla de inicio</b><ol class="pasos">' +
+      '<li>Abre este link en <b>Safari</b>.</li><li>Toca <b>Compartir</b> <span aria-hidden="true">(el cuadrado con la flecha ↑)</span>.</li>' +
+      '<li>Elige <b>Agregar a inicio</b> y luego <b>Agregar</b>.</li><li>Abre <b>Hermanizzz</b> desde el ícono nuevo, entra a Ajustes y toca <b>Activar avisos</b>.</li></ol>' +
+      '<span class="muted xs">En iPhone los avisos solo funcionan desde el ícono de inicio (iOS 16.4 o más nuevo).</span>';
+    else if (e === 'bloqueado') h += '<b>Los avisos están bloqueados</b><span class="small">' + (esIOS() ? 'En el iPhone ve a <b>Ajustes → Notificaciones → Hermanizzz</b> y activa <b>Permitir notificaciones</b>. Luego vuelve aquí.' : 'Permite las notificaciones de esta página en la configuración del navegador y vuelve aquí.') + '</span>';
+    else if (e === 'no-soportado') h += '<span class="small">Este navegador no permite avisos. En iPhone usa Safari; en Android, Chrome.</span>';
+    else h += que + '<button class="btn mango block" type="button" data-pushon="1">🔔 Activar avisos</button>';
+    return h + '</div></section>';
+  }
+  function abrirHash(h) {
+    h = String(h || '');
+    if (!h || h === '#') return false;
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    var m;
+    if ((m = /^#res=(.+)$/.exec(h)) && S.reservas.some(function (r) { return r.id === m[1]; })) { cerrarSheet(); S.tab = 'viaje'; render(); verRes(m[1]); return true; }
+    if ((m = /^#mov=(.+)$/.exec(h)) && S.movs.some(function (x) { return x.id === m[1]; })) { cerrarSheet(); S.tab = 'movs'; render(); verMov(m[1]); return true; }
+    if (/^#(viaje|resumen|movs|personas|ajustes)$/.test(h)) { cerrarSheet(); S.tab = h.slice(1); render(); return true; }
+    return false;
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && yo()) refrescarPush(); });
   async function loadData() {
     var id = S.viaje.id;
     var r = await Promise.all([
@@ -306,6 +395,11 @@
       else { quien = per(t.de); txt = esc(nom(t.de)) + ' le pasa a ' + esc(nom(t.a)); btn = 'Ya se pagó'; }
       return '<div class="liq">' + av(quien, 38) + '<div class="t"><span>' + txt + '</span><b class="num">' + fmt(t.v) + '</b></div><button class="btn sm soft" type="button" data-liq="' + t.de + '|' + t.a + '|' + t.v + '">' + btn + '</button></div>';
     }).join('') : '<div class="empty">Están a mano. 🎉</div>') + '</div></section>';
+
+    if (PUSH.estado && PUSH.estado !== 'on' && PUSH.estado !== 'no-soportado' && !store('pushOculto')) {
+      h += '<div class="tip">' + ICON.bell + '<div style="flex:1"><b>Activa los avisos en tu celular</b><span>Te avisamos el check-in un día antes, la hora de salir y cuando otra anota un gasto.</span>' +
+        '<div class="actions" style="margin-top:8px"><button class="btn sm mango" type="button" data-go="ajustes">' + (PUSH.estado === 'instalar' ? 'Ver cómo' : 'Activar') + '</button><button class="btn sm ghost" type="button" data-pushoculto="1">Ahora no</button></div></div></div>';
+    }
 
     var deb = pagan().map(function (p) { return { p: p, v: -r2((o[p.id] || {}).net) }; }).filter(function (d) { return d.v >= 50; }).sort(function (a, b) { return b.v - a.v; })[0];
     if (deb) {
@@ -452,7 +546,7 @@
   /* ---------- Ajustes ---------- */
   function vistaAjustes() {
     var v = S.viaje, me = yo();
-    return phead('Ajustes', 'Reglas del viaje, invitación y tu cuenta.') + '<div class="pad" style="display:flex;flex-direction:column;gap:18px">' +
+    return phead('Ajustes', 'Avisos, reglas del viaje, invitación y tu cuenta.') + '<div class="pad" style="display:flex;flex-direction:column;gap:18px">' + tarjetaPush() +
       '<section class="section"><h2>Reglas del viaje</h2><form class="card" id="cfg" novalidate>' +
       '<label class="f" for="cNombre">Nombre del viaje<input class="in" id="cNombre" value="' + esc(v.nombre) + '"></label>' +
       '<div class="row"><label class="f" for="cTope">Tope por noche (S/)<input class="in" id="cTope" inputmode="decimal" value="' + esc(v.tope) + '"></label>' +
@@ -463,13 +557,6 @@
       '<section class="section"><h2>Invitar</h2><div class="card"><p style="margin:0">Pásales este código a tus hermanas. Entran a esta misma página, crean su cuenta y lo escriben.</p>' +
       '<div class="code num">' + esc(v.codigo) + '</div><button class="btn mango" type="button" id="copyCode">Copiar invitación</button>' +
       '<p class="muted small" style="margin:0;overflow-wrap:anywhere">Link: ' + esc(location.origin + location.pathname) + '</p></div></section>' +
-      '<section class="section"><h2>Asistente de WhatsApp</h2><div class="card"><p style="margin:0">Escríbanle por privado con estas frases:</p>' +
-      '<dl class="kv" style="font-size:14px"><dt><b>deuda</b></dt><dd>cuánto debes o te deben</dd><dt><b>saldos</b></dt><dd>cómo están las tres</dd>' +
-      '<dt><b>gasto 180 cena pagó camila todos</b></dt><dd>anota un gasto</dd><dt><b>pasé 200 a andrea</b></dt><dd>anota un pago</dd>' +
-      '<dt><b>borrar</b></dt><dd>deshace lo último</dd><dt><b>código atsa</b></dt><dd>código de una reserva</dd>' +
-      '<dt><b>agenda · hoy · mañana</b></dt><dd>lo que viene</dd><dt><b>checkin hecho atsa</b></dt><dd>marca el check-in</dd><dt><b>sugerencia</b></dt><dd>quién paga lo próximo</dd></dl>' +
-      '<p class="muted small" style="margin:0">También avisa solo: el check-in un día antes, la hora de salir y a quién le conviene pagar ese día. Cada una tiene que tener su WhatsApp en Personas → Editar. ' +
-      'Con WhatsApp: ' + esc(lista(pagan().filter(function (p) { return p.telefono; }).map(function (p) { return p.nombre; })) || 'nadie todavía') + '.</p></div></section>' +
       '<section class="section"><h2>Tu cuenta</h2><div class="card"><div class="small muted">Entraste como</div><div style="overflow-wrap:anywhere"><b>' + esc(S.user && S.user.email) + '</b>' + (me ? ' · eres <b>' + esc(me.nombre) + '</b>' : '') + '</div>' +
       '<div class="actions"><button class="btn sm ghost" type="button" id="cambiarYo">Cambiar quién soy</button><button class="btn sm ghost" type="button" id="salir">Cerrar sesión</button></div></div></section></div>';
   }
@@ -510,7 +597,7 @@
       h += '<div class="rule"><div class="h"><span class="n">3</span><div><b>Hospedaje con tope de ' + fmt(tope).replace('.00', '') + '</b><span>' + esc(lista(otrosNombres)) + ' cuentan hasta ' + fmt(tope).replace('.00', '') + ' por noche. ' + esc(a.nombre) + ' pone lo que pase.</span></div></div>' + ej + '</div>';
     }
     h += '<div class="rule"><div class="h"><span class="n">4</span><div><b>Quien paga, lo anota</b><span>Toca el botón amarillo (+). La app dice quién le debe a quién. Cuando se pasen plata, lo marcan como pagado.</span></div></div></div>';
-    h += '<div class="rule"><div class="h"><span class="n">5</span><div><b>En Viaje están los códigos</b><span>Vuelos, hospedajes y tours con fecha, hora y código. Avisa cuándo toca hacer check-in y guarda la foto de los pases.</span></div></div></div>';
+    h += '<div class="rule"><div class="h"><span class="n">5</span><div><b>En Viaje están los códigos</b><span>Vuelos, hospedajes y tours con fecha, hora y código. Guarda la foto de los pases. Y si activas los avisos (en Ajustes), te llega al celular el check-in, la hora de salir y los gastos nuevos.</span></div></div></div>';
     h += '</div><button class="btn block" type="button" data-cerrar="1">Entendido</button>';
     abrirSheet(h, true);
   }
@@ -673,7 +760,6 @@
     var h = '<div class="sheet-head"><h2 id="sheetTitle">' + (base ? 'Editar persona' : 'Agregar persona') + '</h2>' + X + '</div>' +
       '<form id="fPer" novalidate style="display:flex;flex-direction:column;gap:14px">' +
       '<label class="f" for="pNombre">Nombre<input class="in" id="pNombre" value="' + esc(P.nombre) + '" autocomplete="off"></label>' +
-      '<label class="f" for="pTel">WhatsApp (para el asistente)<input class="in" id="pTel" type="tel" inputmode="tel" value="' + esc(P.telefono || '') + '" placeholder="Ej.: 987 654 321" autocomplete="off"><span class="xs muted" style="font-weight:400">Opcional. Con esto el asistente de WhatsApp sabe quién le escribe.</span></label>' +
       '<div class="f">Color<div class="colors" role="group">' + COLORS.map(function (c) { return '<button type="button" data-pcolor="' + c + '" style="--c:' + c + '" aria-pressed="' + (P.color === c) + '" aria-label="Color ' + c + '"></button>'; }).join('') + '</div></div>' +
       '<div class="seg" role="group" aria-label="Tipo"><button type="button" data-ptipo="paga" aria-pressed="' + (P.tipo === 'paga') + '">Paga su parte</button><button type="button" data-ptipo="cubierta" aria-pressed="' + (P.tipo === 'cubierta') + '">La cubren otras</button></div>' +
       (P.tipo === 'cubierta' ? '<div class="note">Quién la cubre se cambia en Personas → <b>Cambiar porcentajes</b>.</div>' : '') +
@@ -687,10 +773,7 @@
   async function guardarPersona() {
     P.nombre = document.getElementById('pNombre').value.trim();
     if (!P.nombre) { toast('Escribe el nombre.'); return; }
-    var tel = document.getElementById('pTel').value.replace(/\D/g, '');
-    if (tel.length === 9 && tel.charAt(0) === '9') tel = '51' + tel;
-    if (tel && tel.length < 10) { toast('Revisa el WhatsApp: escribe el número completo (9 dígitos en Perú).'); return; }
-    var row = { nombre: P.nombre, tipo: P.tipo, color: P.color, telefono: tel || null };
+    var row = { nombre: P.nombre, tipo: P.tipo, color: P.color };
     if (P.tipo === 'cubierta' && !Object.keys(P.cobertura || {}).length) {
       var otra = cubiertas().find(function (c) { return c.id !== P.id; });
       if (otra) { row.cobertura = otra.cobertura || {}; row.cobertura_otros = otra.cobertura_otros || {}; }
@@ -759,7 +842,7 @@
     h += '<div class="card"><b style="font-family:var(--display);font-size:16px">Recordatorios</b>' +
       (r.checkin_requerido ? '<button class="switch" type="button" role="switch" aria-checked="' + !!r.recordar_checkin + '" data-rsw="' + r.id + '"><span>Avisar el check-in · 1 día antes</span><span class="sw"></span></button>' : '') +
       '<label class="cov" for="rsal"><span>Salir ' + (r.tipo === 'vuelo' ? 'al aeropuerto' : 'hacia allá') + ' a las</span><input class="in" id="rsal" type="time" data-rsal="' + r.id + '" value="' + esc(hhmm(r.hora_salida)) + '"></label>' +
-      '<span class="muted xs">Por ahora los avisos salen en la app (pestaña Viaje). Más adelante podrán llegar por WhatsApp.</span></div>';
+      '<span class="muted xs">Te llegan como notificación al celular si activaste los avisos en Ajustes.</span></div>';
 
     var fs = S.fotos.filter(function (f) { return f.reserva_id === r.id; }), me = yo();
     h += '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-family:var(--display);font-size:16px">Pases y fotos</b><span class="muted small">' + fs.length + (fs.length === 1 ? ' archivo' : ' archivos') + '</span></div>' +
@@ -873,6 +956,10 @@
 
     if (d.cerrar) { cerrarSheet(); return; }
     if (d.guia) { guia(); return; }
+    if (d.pushon) { activarPush(b); return; }
+    if (d.pushoff) { desactivarPush(); return; }
+    if (d.pushprueba) { probarPush(false); return; }
+    if (d.pushoculto) { store('pushOculto', '1'); render(); return; }
     if (d.go) { cerrarSheet(); S.tab = d.go; render(); window.scrollTo(0, 0); return; }
     if (d.nuevo) { abrirForm(); return; }
     if (d.filtro) { S.filtro = (S.filtro === d.filtro && d.filtro.indexOf('p:') === 0) ? 'todos' : d.filtro; document.getElementById('main').innerHTML = vista(); return; }
