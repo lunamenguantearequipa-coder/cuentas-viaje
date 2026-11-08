@@ -616,7 +616,7 @@
     var a = absorbe();
     return [
       ['todos', '👨‍👩‍👧', 'Todos por igual', 'Se divide entre todos. La parte de ' + nombresCub() + ' la cubren las hermanas según sus porcentajes.'],
-      ['tope', '🛏️', 'Hospedaje con tope · S/ ' + S.viaje.tope + ' por noche', 'Cada uno cuenta hasta S/ ' + S.viaje.tope + ' por noche; ' + (a ? a.nombre : 'una hermana') + ' pone lo que pase del tope.'],
+      ['tope', '🛏️', 'Hospedaje Tarapoto · tope S/ ' + S.viaje.tope + ' por noche', 'Solo para los hospedajes de Tarapoto. Cada uno cuenta hasta S/ ' + S.viaje.tope + ' por noche; ' + (a ? a.nombre : 'una hermana') + ' pone lo que pase. Pon bien cuántas noches son.'],
       ['detalle', '✍️', 'Monto por persona', 'Para cuartos de distinto precio o pasajes de cada quien.'],
       ['cubiertas', '💛', 'Solo para ' + nombresCub(), 'Lo pagan las hermanas según los porcentajes de Personas.'],
       ['entre', '👯', 'Entre algunas personas', 'Se divide por igual solo entre quienes marques.'],
@@ -690,13 +690,18 @@
     if (m.tipo === 'pago') { el.textContent = m.monto > 0 ? pr : ''; return; }
     if (!(m.monto > 0)) { el.innerHTML = '<div class="t">Así queda · antes de guardar</div><span class="muted">Escribe el monto para ver cuánto le toca a cada una.</span>'; return; }
     var d = Calc.detalleCarga(Calc.partes(m, S.viaje, S.personas), S.personas, m.categoria);
+    var nocheTxt = '';
+    if (m.modo === 'tope') {
+      var pn = Calc.enSoles(m, S.viaje) / (S.personas.length || 1) / (m.noches || 1);
+      nocheTxt = '<div class="muted">Sale ' + fmt(pn) + ' por persona por noche (' + m.noches + (m.noches === 1 ? ' noche' : ' noches') + '). ' + (pn > Number(S.viaje.tope) ? 'Pasa el tope: ' + esc(absorbe() ? absorbe().nombre : '') + ' pone la diferencia.' : 'No pasa el tope: se divide igual entre todos.') + '</div>';
+    }
     el.innerHTML = '<div class="t">Así queda · antes de guardar' + (m.moneda === 'USD' ? ' · total ' + fmt(Calc.enSoles(m, S.viaje)) : '') + '</div>' +
       pagan().map(function (x) {
         var v = d[x.id] || { propio: 0, cubre: 0 }, parts = [];
         if (v.propio > 0.004) parts.push(propioTxt(m, x.id) + ' ' + fmt(v.propio));
         if (v.cubre > 0.004) parts.push(nombresCub() + ' ' + fmt(v.cubre));
         return '<div class="l"><span style="display:flex;align-items:center;gap:8px;min-width:0">' + av(x) + '<span>' + esc(x.nombre) + (parts.length ? '<small>' + esc(parts.join(' + ')) + '</small>' : '') + '</span></span><b>' + fmt(v.propio + v.cubre) + '</b></div>';
-      }).join('') + (pr ? '<div class="warn">' + esc(pr) + '</div>' : '');
+      }).join('') + nocheTxt + (pr ? '<div class="warn">' + esc(pr) + '</div>' : '');
   }
   function abrirForm(base) { F = nuevoF(base); abrirSheet(formHtml()); prev(); }
   function repintarForm() { ponerSheet(formHtml()); prev(); }
@@ -986,7 +991,7 @@
     if (F) {
       if (d.ftipo) { F.tipo = d.ftipo; repintarForm(); return; }
       if (d.fpag) { F.pagador_id = d.fpag; sheet.querySelectorAll('[data-fpag]').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); prev(); return; }
-      if (d.fcat) { F.categoria = d.fcat; sheet.querySelectorAll('[data-fcat]').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); if (d.fcat === 'hospedaje' && F.modo === 'todos' && !F.id) { F.modo = 'tope'; repintarForm(); } else prev(); return; }
+      if (d.fcat) { F.categoria = d.fcat; sheet.querySelectorAll('[data-fcat]').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); prev(); return; }
       if (d.fvermodos) { F.verModos = true; repintarForm(); return; }
       if (d.fmodo) { F.modo = d.fmodo; F.verModos = false; repintarForm(); return; }
       if (d.fentre) { var i = F.entre.indexOf(d.fentre); if (i >= 0) F.entre.splice(i, 1); else F.entre.push(d.fentre); b.setAttribute('aria-pressed', i < 0); prev(); return; }
