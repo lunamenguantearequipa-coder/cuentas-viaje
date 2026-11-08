@@ -289,3 +289,15 @@ textarea.in{min-height:72px;resize:vertical}
 .share .r span:last-child,.kv dd,.breakdown .r>:last-child{white-space:nowrap}
 .pasos{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:15px}
 .tip .actions .btn.ghost{color:inherit;box-shadow:inset 0 0 0 1.5px currentColor;opacity:.85}
+.acc summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none}
+.acc summary::-webkit-details-marker{display:none}
+.acc summary::after{content:"›";font-size:22px;color:var(--muted);transform:rotate(90deg);transition:transform .15s}
+.acc[open] summary::after{transform:rotate(-90deg)}
+.lst{display:flex;flex-direction:column;margin-top:8px}
+.ln{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.ln .dd{overflow-wrap:anywhere}
+.gxg{gap:8px;padding:12px 14px}
+.tri{display:grid;gap:8px}
+.tri>div{display:flex;flex-direction:column;background:var(--sunk);border-radius:12px;padding:8px 10px;min-width:0}
+.tri b{font-size:15px}
+.card[style*="--jungle"] .tri>div{background:rgba(245,248,241,.1)}

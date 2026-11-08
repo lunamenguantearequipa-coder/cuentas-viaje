@@ -390,7 +390,7 @@
     }
 
     var l = Calc.liquidar(o);
-    h += '<section class="section"><h2>Para quedar a mano</h2><div class="card" style="padding:4px 14px">' + (l.length ? l.map(function (t) {
+    h += '<section class="section"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h2>Para quedar a mano</h2><button class="more" type="button" data-cuentas="1">Ver el detalle ›</button></div><div class="card" style="padding:4px 14px">' + (l.length ? l.map(function (t) {
       var txt, btn, quien;
       if (me && t.a === me.id) { quien = per(t.de); txt = esc(nom(t.de)) + ' te pasa'; btn = 'Ya me pagó'; }
       else if (me && t.de === me.id) { quien = per(t.a); txt = 'Le pasas a ' + esc(nom(t.a)); btn = 'Ya le pagué'; }
@@ -541,6 +541,7 @@
         (misma ? '' : '<div style="display:flex;flex-direction:column;gap:6px"><span class="lab">Comidas, tours y traslados</span>' + splitBar(pcts(false)) + '</div>') +
         '<button class="btn mango" type="button" data-pct="1">Cambiar porcentajes</button></div>';
     }
+    h += '<button class="btn block" type="button" data-cuentas="1">📋 Ver cuentas detalladas</button>';
     h += '<button class="btn ghost block" type="button" data-editp="nueva">+ Agregar persona</button></div>';
     return h;
   }
@@ -609,7 +610,7 @@
     var me = yo(), ps = pagan(), otra = ps.find(function (p) { return !me || p.id !== me.id; });
     return Object.assign({
       id: null, tipo: 'gasto', monto: '', moneda: 'PEN', tc: '', descripcion: '', pagador_id: me ? me.id : (ps[0] && ps[0].id), categoria: 'comidas', fecha: hoy(),
-      modo: 'todos', noches: '1', detalle: {}, entre: ps.map(function (p) { return p.id; }), de_id: me ? me.id : (ps[0] && ps[0].id), a_id: otra ? otra.id : '', nota: '', verModos: false
+      modo: 'todos', noches: '', detalle: {}, entre: ps.map(function (p) { return p.id; }), de_id: me ? me.id : (ps[0] && ps[0].id), a_id: otra ? otra.id : '', nota: '', verModos: false
     }, base || {});
   }
   function MODOS() {
@@ -641,7 +642,7 @@
       h += '<div class="f">Cómo se divide<div class="modes" role="group">' + mostrar.map(function (m) {
         return '<button type="button" class="mode" data-fmodo="' + m[0] + '" aria-pressed="' + (F.modo === m[0]) + '"><span class="ic">' + m[1] + '</span><b>' + esc(m[2]) + '</b><span class="desc">' + esc(m[3]) + '</span></button>';
       }).join('') + (F.verModos ? '' : '<button type="button" class="more" data-fvermodos="1">Ver las otras ' + (ms.length - 1) + ' formas ›</button>') + '</div></div>';
-      if (F.modo === 'tope') h += '<label class="f" for="fNoches">Noches<input class="in" id="fNoches" name="noches" inputmode="numeric" value="' + esc(F.noches) + '"></label>';
+      if (F.modo === 'tope') h += '<label class="f" for="fNoches">¿Cuántas noches son?<input class="in" id="fNoches" name="noches" inputmode="numeric" placeholder="Ej.: 4" value="' + esc(F.noches) + '"><span class="xs muted" style="font-weight:400">Todas las noches de esta estadía, no solo una.</span></label>';
       if (F.modo === 'detalle') h += '<div class="det">' + S.personas.map(function (p) { return '<label class="f" for="fd_' + p.id + '">' + esc(p.nombre) + '<input class="in" id="fd_' + p.id + '" data-fdet="' + p.id + '" inputmode="decimal" placeholder="0.00" value="' + esc(F.detalle[p.id] == null ? '' : F.detalle[p.id]) + '"></label>'; }).join('') + '</div>';
       if (F.modo === 'entre') h += '<div class="pick" role="group" aria-label="Entre quiénes">' + S.personas.map(function (p) { return '<button type="button" data-fentre="' + p.id + '" aria-pressed="' + (F.entre.indexOf(p.id) >= 0) + '">' + av(p) + esc(p.nombre) + '</button>'; }).join('') + '</div>';
       h += '<div class="preview num" id="fPrev" aria-live="polite"></div>';
@@ -659,7 +660,7 @@
   function borrador() {
     if (F.tipo === 'pago') return { tipo: 'pago', monto: num(F.monto), moneda: 'PEN', de_id: F.de_id, a_id: F.a_id, fecha: F.fecha || hoy(), nota: F.nota.trim() || null };
     var m = { tipo: 'gasto', descripcion: F.descripcion.trim(), monto: num(F.monto), moneda: F.moneda, tc: F.moneda === 'USD' ? (num(F.tc) || Number(S.viaje.tc)) : null, pagador_id: F.pagador_id, categoria: F.categoria, fecha: F.fecha || hoy(), modo: F.modo, noches: null, tope: null, detalle: null, entre: null };
-    if (F.modo === 'tope') { m.noches = Math.max(1, Math.round(num(F.noches) || 1)); m.tope = Number(S.viaje.tope); }
+    if (F.modo === 'tope') { m.noches = Math.round(num(F.noches)) || 0; m.tope = Number(S.viaje.tope); }
     if (F.modo === 'detalle') { m.detalle = {}; S.personas.forEach(function (p) { m.detalle[p.id] = num(F.detalle[p.id]); }); }
     if (F.modo === 'entre') m.entre = F.entre.slice();
     return m;
@@ -671,6 +672,7 @@
     if (!m.pagador_id) return 'Elige quién pagó.';
     if (m.modo === 'detalle') { var s = 0; Object.keys(m.detalle).forEach(function (k) { s += m.detalle[k]; }); var d = r2(m.monto - s); if (Math.abs(d) > 0.05) return (d > 0 ? 'Falta repartir ' : 'Te pasaste por ') + (m.moneda === 'USD' ? 'US$ ' : 'S/ ') + Math.abs(d).toFixed(2) + '.'; }
     if (m.modo === 'entre' && !m.entre.length) return 'Marca al menos una persona.';
+    if (m.modo === 'tope' && !(m.noches > 0)) return 'Escribe cuántas noches son (por ejemplo, 4).';
     return '';
   }
   // Etiquetas de lo "propio" de cada hermana según el modo.
@@ -689,9 +691,10 @@
     btn.disabled = !!pr;
     if (m.tipo === 'pago') { el.textContent = m.monto > 0 ? pr : ''; return; }
     if (!(m.monto > 0)) { el.innerHTML = '<div class="t">Así queda · antes de guardar</div><span class="muted">Escribe el monto para ver cuánto le toca a cada una.</span>'; return; }
+    if (m.modo === 'tope' && !(m.noches > 0)) { el.innerHTML = '<div class="t">Así queda · antes de guardar</div><span class="muted">Escribe cuántas noches son para ver cuánto le toca a cada una.</span>'; return; }
     var d = Calc.detalleCarga(Calc.partes(m, S.viaje, S.personas), S.personas, m.categoria);
     var nocheTxt = '';
-    if (m.modo === 'tope') {
+    if (m.modo === 'tope' && m.noches > 0) {
       var pn = Calc.enSoles(m, S.viaje) / (S.personas.length || 1) / (m.noches || 1);
       nocheTxt = '<div class="muted">Sale ' + fmt(pn) + ' por persona por noche (' + m.noches + (m.noches === 1 ? ' noche' : ' noches') + '). ' + (pn > Number(S.viaje.tope) ? 'Pasa el tope: ' + esc(absorbe() ? absorbe().nombre : '') + ' pone la diferencia.' : 'No pasa el tope: se divide igual entre todos.') + '</div>';
     }
@@ -744,6 +747,78 @@
       ? '<div class="card"><b>¿Borrar este movimiento?</b><span class="muted small">Se recalculan los saldos de todas.</span><div class="actions"><button class="btn danger" type="button" data-borrarok="' + m.id + '">Sí, borrar</button><button class="btn ghost" type="button" data-ver="' + m.id + '">No</button></div></div>'
       : '<div class="actions"><button class="btn" type="button" data-editar="' + m.id + '">Editar</button><button class="btn ghost" type="button" data-borrar="' + m.id + '">Borrar</button></div>';
     ponerSheet(h, true, { k: 'mov', id: m.id });
+  }
+
+  /* ---------- Cuentas detalladas (para revisar entre las tres) ---------- */
+  function datosCuentas() {
+    var ps = pagan(), cubs = cubiertas(), o = Calc.saldos(S.viaje, S.personas, S.movs);
+    var gastos = S.movs.filter(function (m) { return m.tipo !== 'pago'; }).slice().sort(function (a, b) { return (a.fecha + a.created_at).localeCompare(b.fecha + b.created_at); });
+    var pagos = S.movs.filter(function (m) { return m.tipo === 'pago'; }).slice().sort(function (a, b) { return (a.fecha + a.created_at).localeCompare(b.fecha + b.created_at); });
+    var filas = gastos.map(function (m) {
+      var p = Calc.partes(m, S.viaje, S.personas), d = Calc.detalleCarga(p, S.personas, m.categoria), pp = 0;
+      cubs.forEach(function (c) { pp += p[c.id] || 0; });
+      return { m: m, total: Calc.enSoles(m, S.viaje), d: d, papas: pp };
+    });
+    var total = filas.reduce(function (s, f) { return s + f.total; }, 0);
+    var sumaToca = ps.reduce(function (s, x) { return s + (o[x.id] ? o[x.id].toca : 0); }, 0);
+    return { ps: ps, o: o, filas: filas, pagos: pagos, total: total, sumaToca: sumaToca, liq: Calc.liquidar(o) };
+  }
+  function verCuentas() {
+    var D = datosCuentas(), ps = D.ps, o = D.o, pb = pcts(true), h;
+    var cols = 'grid-template-columns:repeat(' + ps.length + ',minmax(0,1fr))';
+    h = '<div class="shero">' + leaves('chica') + '<div class="top"><span class="tag">📋 Todo en soles</span>' + X + '</div>' +
+      '<h2 id="sheetTitle">Cuentas detalladas</h2><div class="sub">Cada gasto, cuánto le toca a cada una y de dónde sale el saldo. Revisado al centavo.</div></div>';
+
+    // 1) Resumen
+    h += '<h2 class="h2">1 · El resumen</h2><div class="card" style="gap:12px">';
+    h += ps.map(function (x) {
+      var v = o[x.id], n = r2(v.net);
+      return '<div style="display:flex;flex-direction:column;gap:4px;padding-bottom:10px;border-bottom:1px solid var(--line)">' +
+        '<div style="display:flex;align-items:center;gap:10px">' + av(x, 30) + '<b style="flex:1;font-size:17px">' + esc(x.nombre) + '</b><b class="num ' + (n > 0.009 ? 'good' : n < -0.009 ? 'bad' : '') + '" style="font-family:var(--display);font-size:18px">' + (n > 0.009 ? 'le deben ' : n < -0.009 ? 'debe ' : 'a mano ') + fmt(Math.abs(n)) + '</b></div>' +
+        '<dl class="kv num" style="font-size:14px"><dt>Pagó</dt><dd>' + fmt(v.pago) + '</dd>' +
+        '<dt>Le toca (lo suyo ' + fmt(v.propio) + ' + su ' + pctTxt(pb[x.id] || 0) + ' de ' + esc(nombresCub()) + ' ' + fmt(v.cubre) + ')</dt><dd>− ' + fmt(v.toca) + '</dd>' +
+        (v.env > 0.004 ? '<dt>Ya les pasó a sus hermanas</dt><dd>+ ' + fmt(v.env) + '</dd>' : '') +
+        (v.rec > 0.004 ? '<dt>Ya le pasaron</dt><dd>− ' + fmt(v.rec) + '</dd>' : '') +
+        '<dt><b>Saldo</b></dt><dd><b>' + (n >= 0 ? '+ ' : '− ') + fmt(Math.abs(n)) + '</b></dd></dl></div>';
+    }).join('');
+    h += '<span class="xs muted">Saldo = pagó − le toca + lo que pasó − lo que le pasaron. Positivo: le deben. Negativo: debe.</span></div>';
+    h += '<div class="card"><b>Para quedar a mano</b>' + (D.liq.length ? D.liq.map(function (t) { return '<div class="num" style="font-size:15px">' + esc(nom(t.de)) + ' le pasa a ' + esc(nom(t.a)) + ' <b>' + fmt(t.v) + '</b></div>'; }).join('') : '<span>Están a mano 🎉</span>') + '</div>';
+
+    // 2) Quién pagó qué
+    h += '<h2 class="h2">2 · Quién pagó qué</h2>';
+    h += ps.map(function (x) {
+      var mias = D.filas.filter(function (f) { return f.m.pagador_id === x.id; });
+      var porCat = {};
+      mias.forEach(function (f) { var c = CATS[f.m.categoria] ? f.m.categoria : 'otros'; porCat[c] = (porCat[c] || 0) + f.total; });
+      return '<details class="card acc"><summary><span style="display:flex;align-items:center;gap:10px;flex:1">' + av(x, 30) + '<b>' + esc(x.nombre) + '</b><span class="muted small">' + mias.length + ' gastos</span></span><b class="num">' + fmt(o[x.id].pago) + '</b></summary>' +
+        '<div class="small muted" style="margin-top:6px">' + Object.keys(porCat).map(function (k) { return CATS[k][1] + ' ' + CATS[k][0] + ' ' + fmt(porCat[k]); }).join(' · ') + '</div>' +
+        '<div class="lst">' + mias.map(function (f) { return '<div class="ln"><span class="muted xs">' + esc(fdate(f.m.fecha)) + '</span><span class="dd">' + esc(f.m.descripcion) + '</span><b class="num">' + fmt(f.total) + '</b></div>'; }).join('') + '</div></details>';
+    }).join('');
+
+    // 3) Gasto por gasto
+    h += '<h2 class="h2">3 · Gasto por gasto</h2><p class="muted small" style="margin:0">Debajo de cada nombre: lo suyo + su parte de ' + esc(nombresCub()) + ' (' + ps.map(function (x) { return esc(x.nombre) + ' ' + pctTxt(pb[x.id] || 0); }).join(', ') + ').</p>';
+    h += D.filas.map(function (f) {
+      var m = f.m, cat = CATS[m.categoria] || CATS.otros;
+      return '<div class="card gxg"><div style="display:flex;gap:10px;align-items:flex-start"><span style="font-size:20px">' + cat[1] + '</span><div style="flex:1;min-width:0"><b style="display:block">' + esc(m.descripcion) + '</b><span class="xs muted">' + esc(fdate(m.fecha)) + ' · pagó ' + esc(nom(m.pagador_id)) + ' · ' + esc(modoTxt(m)) + (m.moneda === 'USD' ? ' · US$ ' + Number(m.monto).toFixed(2) + ' × ' + Number(m.tc || S.viaje.tc) : '') + '</span></div><b class="num" style="font-family:var(--display)">' + fmt(f.total) + '</b></div>' +
+        '<div class="tri" style="' + cols + '">' + ps.map(function (x) {
+          var v = f.d[x.id] || { propio: 0, cubre: 0 };
+          return '<div><span class="xs muted">' + esc(x.nombre) + '</span><b class="num">' + fmt(v.propio + v.cubre) + '</b>' + (v.cubre > 0.004 ? '<span class="xs muted num">' + fmt(v.propio).slice(3) + ' + ' + fmt(v.cubre).slice(3) + '</span>' : '') + '</div>';
+        }).join('') + '</div>' + (f.papas > 0.004 ? '<span class="xs muted num">' + esc(cap(nombresCub())) + ' cuentan ' + fmt(f.papas) + ' en este gasto.</span>' : '') + '</div>';
+    }).join('');
+    h += '<div class="card" style="background:var(--jungle);color:var(--on-jungle)"><b>Totales</b><div class="tri" style="' + cols + '">' + ps.map(function (x) { return '<div><span class="xs" style="color:var(--on-jungle-3)">' + esc(x.nombre) + '</span><b class="num">' + fmt(o[x.id].toca) + '</b></div>'; }).join('') + '</div>' +
+      '<span class="xs num" style="color:var(--on-jungle-2)">Gastado en total ' + fmt(D.total) + ' = suma de lo que le toca a las tres ' + fmt(D.sumaToca) + (Math.abs(D.total - D.sumaToca) < 0.05 ? ' ✓' : ' ⚠️') + '</span></div>';
+
+    // 4) Pagos entre hermanas
+    h += '<h2 class="h2">4 · Plata que ya se pasaron</h2><div class="card">' + (D.pagos.length ? D.pagos.map(function (m) { return '<div class="ln"><span class="muted xs">' + esc(fdate(m.fecha)) + '</span><span class="dd">' + esc(nom(m.de_id)) + ' → ' + esc(nom(m.a_id)) + (m.nota ? ' · ' + esc(m.nota) : '') + '</span><b class="num">' + fmt(m.monto) + '</b></div>'; }).join('') : '<span class="muted">Todavía ninguno.</span>') + '</div>';
+    h += '<button class="btn mango block" type="button" data-copiarcuentas="1">Copiar resumen para WhatsApp</button>';
+    ponerSheet(h, true);
+  }
+  async function copiarCuentas() {
+    var D = datosCuentas(), o = D.o, t = ['🌿 *Cuentas del viaje* (al ' + fdate(hoy()) + ')', ''];
+    D.ps.forEach(function (x) { var v = o[x.id], n = r2(v.net); t.push('*' + x.nombre + '*: pagó ' + fmt(v.pago) + ', le toca ' + fmt(v.toca) + ' (lo suyo ' + fmt(v.propio) + ' + ' + nombresCub() + ' ' + fmt(v.cubre) + ')' + (v.env > 0.004 ? ', pasó ' + fmt(v.env) : '') + (v.rec > 0.004 ? ', le pasaron ' + fmt(v.rec) : '') + ' → ' + (n > 0.009 ? 'le deben ' : n < -0.009 ? 'debe ' : 'a mano ') + fmt(Math.abs(n))); });
+    t.push('', '*Para quedar a mano:*'); D.liq.forEach(function (z) { t.push('• ' + nom(z.de) + ' → ' + nom(z.a) + ': ' + fmt(z.v)); });
+    t.push('', 'Total gastado: ' + fmt(D.total) + '. El detalle gasto por gasto está en la app: Personas → Ver cuentas detalladas.');
+    try { await navigator.clipboard.writeText(t.join('\n')); toast('Copiado. Pégalo en el chat de WhatsApp.'); } catch (e) { toast('No se pudo copiar.'); }
   }
 
   /* ---------- Persona: resumen ---------- */
@@ -976,6 +1051,8 @@
     if (d.pver) { verPersona(d.pver); return; }
     if (d.editp) { P = null; editarPersona(d.editp); return; }
     if (d.pct) { abrirPct(); return; }
+    if (d.cuentas) { verCuentas(); return; }
+    if (d.copiarcuentas) { copiarCuentas(); return; }
     if (d.res) { verRes(d.res); return; }
     if (d.nres) { abrirRes(); return; }
     if (d.copy) { try { await navigator.clipboard.writeText(d.copy); toast('Código ' + d.copy + ' copiado.'); } catch (er) { toast('Código: ' + d.copy); } return; }
