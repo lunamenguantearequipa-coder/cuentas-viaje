@@ -60,6 +60,15 @@
   function nom(id) { var p = per(id); return p ? p.nombre : '—'; }
   function yo() { return S.personas.find(function (p) { return p.user_id && S.user && p.user_id === S.user.id; }); }
   function av(p, size) { if (!p) return ''; return '<span class="avatar" style="--c:' + esc(p.color) + (size ? ';width:' + size + 'px;height:' + size + 'px;font-size:' + Math.round(size * 0.42) + 'px' : '') + '" aria-hidden="true">' + esc((p.nombre || '?').trim().charAt(0).toUpperCase()) + '</span>'; }
+  // Equivalencia en otra moneda (ej. coronas suecas para Andrea)
+  var SIMB = { SEK: 'kr', EUR: '€', USD: 'US$', GBP: '£', NOK: 'kr', DKK: 'kr' };
+  function ref(pid) { var p = per(pid); return p && p.moneda_ref && Number(p.tc_ref) > 0 ? p : null; }
+  function enRef(pid, soles) {
+    var p = ref(pid); if (!p) return '';
+    var v = Math.abs(Number(soles) || 0) * Number(p.tc_ref), s = SIMB[p.moneda_ref] || p.moneda_ref;
+    var t = Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return s === 'kr' ? '≈ ' + t + ' kr' : '≈ ' + s + ' ' + t;
+  }
   function absorbe() { return per(S.viaje && S.viaje.absorbe_tope) || pagan()[0]; }
   function lista(arr) { return arr.length <= 1 ? arr.join('') : arr.slice(0, -1).join(', ') + ' y ' + arr[arr.length - 1]; }
   function nombresCub() { var c = cubiertas(); return c.length ? lista(c.map(function (p) { return p.nombre.toLowerCase(); })) : 'las personas cubiertas'; }
@@ -373,7 +382,7 @@
     h += '<header class="hero">' + leaves() +
       '<div class="top"><div class="trip">' + esc(S.viaje.nombre) + '<small>' + esc(rango()) + '</small></div>' + heads() + '</div>' +
       '<div><div class="who-big">' + av(me, 30) + esc(me ? me.nombre : '') + (n > 0.009 ? ', te deben' : n < -0.009 ? ', debes' : ', estás a mano') + '</div>' +
-      '<div class="big num">' + fmt(Math.abs(n)) + '</div></div>' +
+      '<div class="big num">' + fmt(Math.abs(n)) + '</div>' + (me && ref(me.id) ? '<div class="sub num" style="font-size:17px;margin-top:4px">' + enRef(me.id, n) + '</div>' : '') + '</div>' +
       '<div class="breakdown num"><div class="t">De dónde sale</div>' +
       '<div class="r"><span>Pagaste</span><b>' + fmt(x.pago) + '</b></div>' +
       '<div class="r"><span>Tu parte de lo gastado hasta hoy</span><b>− ' + fmt(x.toca) + '</b></div>' +
@@ -396,7 +405,7 @@
       if (me && t.a === me.id) { quien = per(t.de); txt = esc(nom(t.de)) + ' te pasa'; btn = 'Ya me pagó'; }
       else if (me && t.de === me.id) { quien = per(t.a); txt = 'Le pasas a ' + esc(nom(t.a)); btn = 'Ya le pagué'; }
       else { quien = per(t.de); txt = esc(nom(t.de)) + ' le pasa a ' + esc(nom(t.a)); btn = 'Ya se pagó'; }
-      return '<div class="liq">' + av(quien, 38) + '<div class="t"><span>' + txt + '</span><b class="num">' + fmt(t.v) + '</b></div><button class="btn sm soft" type="button" data-liq="' + t.de + '|' + t.a + '|' + t.v + '">' + btn + '</button></div>';
+      return '<div class="liq">' + av(quien, 38) + '<div class="t"><span>' + txt + '</span><b class="num">' + fmt(t.v) + '</b>' + (ref(t.de) || ref(t.a) ? '<span class="num">' + enRef(ref(t.de) ? t.de : t.a, t.v) + '</span>' : '') + '</div><button class="btn sm soft" type="button" data-liq="' + t.de + '|' + t.a + '|' + t.v + '">' + btn + '</button></div>';
     }).join('') : '<div class="empty">Están a mano. 🎉</div>') + '</div></section>';
 
     if (PUSH.estado && PUSH.estado !== 'on' && PUSH.estado !== 'no-soportado' && !store('pushOculto')) {
@@ -464,7 +473,7 @@
     }
     var cat = CATS[m.categoria] || CATS.otros;
     return '<button class="item" type="button" data-ver="' + m.id + '"><span class="ico">' + cat[1] + '</span><span style="min-width:0"><div class="d">' + esc(m.descripcion) + '</div><div class="m">Pagó ' + esc(nom(m.pagador_id)) + ' · ' + esc(modoTxt(m)) + '</div></span>' +
-      '<span class="a num">' + fmt(Calc.enSoles(m, S.viaje)) + (m.moneda === 'USD' ? '<small>US$ ' + Number(m.monto).toFixed(2) + '</small>' : '') + '</span></button>';
+      '<span class="a num">' + fmt(Calc.enSoles(m, S.viaje)) + (m.moneda === 'USD' ? '<small>US$ ' + Number(m.monto).toFixed(2) + '</small>' : '') + (yo() && ref(yo().id) ? '<small>' + enRef(yo().id, Calc.enSoles(m, S.viaje)) + '</small>' : '') + '</span></button>';
   }
   function modoTxt(m) {
     if (m.modo === 'todos') return 'Todos por igual';
@@ -530,7 +539,7 @@
     h += pagan().map(function (p) {
       var x = o[p.id] || { pago: 0, toca: 0, net: 0 }, n = r2(x.net);
       return '<button class="pcard" type="button" data-pver="' + p.id + '">' + av(p) + '<span class="mid"><b>' + esc(p.nombre) + (me && me.id === p.id ? ' <span class="badge you">Tú</span>' : '') + '</b><span class="num">Pagó ' + fmt(x.pago) + ' · Su parte hasta hoy ' + fmt(x.toca) + '</span></span>' +
-        '<span class="end"><span>' + (n > 0.009 ? 'Le deben' : n < -0.009 ? 'Debe' : 'A mano') + '</span><b class="num ' + (n > 0.009 ? 'good' : n < -0.009 ? 'bad' : '') + '">' + fmt(Math.abs(n)) + '</b></span></button>';
+        '<span class="end"><span>' + (n > 0.009 ? 'Le deben' : n < -0.009 ? 'Debe' : 'A mano') + '</span><b class="num ' + (n > 0.009 ? 'good' : n < -0.009 ? 'bad' : '') + '">' + fmt(Math.abs(n)) + '</b>' + (ref(p.id) ? '<span class="num">' + enRef(p.id, n) + '</span>' : '') + '</span></button>';
     }).join('');
     if (cubs.length) {
       var partesTot = 0;
@@ -737,7 +746,7 @@
         var v = d[x.id] || { propio: 0, cubre: 0 }, t = v.propio + v.cubre;
         if (t < 0.005 && (m.modo === 'entre' || m.modo === 'invito')) return '';
         var pc = totCub > 0.004 ? v.cubre / totCub * 100 : 0;
-        return '<div class="share num"><div class="h">' + av(x, 30) + '<b>' + esc(x.nombre) + '</b><b>' + fmt(t) + '</b></div>' +
+        return '<div class="share num"><div class="h">' + av(x, 30) + '<b>' + esc(x.nombre) + '</b><b>' + fmt(t) + '</b></div>' + (ref(x.id) ? '<div class="r"><span>En ' + esc(x.moneda_ref) + '</span><span>' + enRef(x.id, t) + '</span></div>' : '') +
           (v.propio > 0.004 ? '<div class="r"><span>' + esc(propioTxt(m, x.id)) + '</span><span>' + fmt(v.propio) + '</span></div>' : '') +
           (v.cubre > 0.004 ? '<div class="r"><span>' + pctTxt(pc) + ' de ' + esc(nombresCub()) + ' (' + fmt(totCub) + ')</span><span>' + fmt(v.cubre) + '</span></div>' : '') + '</div>';
       }).join('');
@@ -780,10 +789,10 @@
         '<dt>Su parte de lo gastado hasta hoy (lo suyo ' + fmt(v.propio) + ' + su ' + pctTxt(pb[x.id] || 0) + ' de ' + esc(nombresCub()) + ' ' + fmt(v.cubre) + ')</dt><dd>− ' + fmt(v.toca) + '</dd>' +
         (v.env > 0.004 ? '<dt>Ya les pasó a sus hermanas</dt><dd>+ ' + fmt(v.env) + '</dd>' : '') +
         (v.rec > 0.004 ? '<dt>Ya le pasaron</dt><dd>− ' + fmt(v.rec) + '</dd>' : '') +
-        '<dt><b>Saldo</b></dt><dd><b>' + (n >= 0 ? '+ ' : '− ') + fmt(Math.abs(n)) + '</b></dd></dl></div>';
+        '<dt><b>Saldo</b></dt><dd><b>' + (n >= 0 ? '+ ' : '− ') + fmt(Math.abs(n)) + '</b>' + (ref(x.id) ? '<br><span class="xs muted">' + enRef(x.id, n) + '</span>' : '') + '</dd></dl></div>';
     }).join('');
     h += '<span class="xs muted">Saldo = pagó − su parte + lo que pasó − lo que le pasaron. Positivo: le deben. Negativo: debe. Es lo anotado hasta hoy: va a cambiar cuando anoten Tarapoto, comidas y tours que faltan.</span></div>';
-    h += '<div class="card"><b>Para quedar a mano</b>' + (D.liq.length ? D.liq.map(function (t) { return '<div class="num" style="font-size:15px">' + esc(nom(t.de)) + ' le pasa a ' + esc(nom(t.a)) + ' <b>' + fmt(t.v) + '</b></div>'; }).join('') : '<span>Están a mano 🎉</span>') + '</div>';
+    h += '<div class="card"><b>Para quedar a mano</b>' + (D.liq.length ? D.liq.map(function (t) { return '<div class="num" style="font-size:15px">' + esc(nom(t.de)) + ' le pasa a ' + esc(nom(t.a)) + ' <b>' + fmt(t.v) + '</b>' + (ref(t.de) || ref(t.a) ? ' <span class="muted">(' + enRef(ref(t.de) ? t.de : t.a, t.v) + ')</span>' : '') + '</div>'; }).join('') : '<span>Están a mano 🎉</span>') + '</div>';
 
     // 2) Quién pagó qué
     h += '<h2 class="h2">2 · Quién pagó qué</h2>';
@@ -816,8 +825,8 @@
   }
   async function copiarCuentas() {
     var D = datosCuentas(), o = D.o, t = ['🌿 *Cuentas del viaje* (al ' + fdate(hoy()) + ')', ''];
-    D.ps.forEach(function (x) { var v = o[x.id], n = r2(v.net); t.push('*' + x.nombre + '*: pagó ' + fmt(v.pago) + ', su parte hasta hoy ' + fmt(v.toca) + ' (lo suyo ' + fmt(v.propio) + ' + ' + nombresCub() + ' ' + fmt(v.cubre) + ')' + (v.env > 0.004 ? ', pasó ' + fmt(v.env) : '') + (v.rec > 0.004 ? ', le pasaron ' + fmt(v.rec) : '') + ' → ' + (n > 0.009 ? 'le deben ' : n < -0.009 ? 'debe ' : 'a mano ') + fmt(Math.abs(n))); });
-    t.push('', '*Para quedar a mano:*'); D.liq.forEach(function (z) { t.push('• ' + nom(z.de) + ' → ' + nom(z.a) + ': ' + fmt(z.v)); });
+    D.ps.forEach(function (x) { var v = o[x.id], n = r2(v.net); t.push('*' + x.nombre + '*: pagó ' + fmt(v.pago) + ', su parte hasta hoy ' + fmt(v.toca) + ' (lo suyo ' + fmt(v.propio) + ' + ' + nombresCub() + ' ' + fmt(v.cubre) + ')' + (v.env > 0.004 ? ', pasó ' + fmt(v.env) : '') + (v.rec > 0.004 ? ', le pasaron ' + fmt(v.rec) : '') + ' → ' + (n > 0.009 ? 'le deben ' : n < -0.009 ? 'debe ' : 'a mano ') + fmt(Math.abs(n)) + (ref(x.id) ? ' (' + enRef(x.id, n) + ')' : '')); });
+    t.push('', '*Para quedar a mano:*'); D.liq.forEach(function (z) { t.push('• ' + nom(z.de) + ' → ' + nom(z.a) + ': ' + fmt(z.v) + (ref(z.de) || ref(z.a) ? ' (' + enRef(ref(z.de) ? z.de : z.a, z.v) + ')' : '')); });
     t.push('', 'Total gastado: ' + fmt(D.total) + '. El detalle gasto por gasto está en la app: Personas → Ver cuentas detalladas.');
     try { await navigator.clipboard.writeText(t.join('\n')); toast('Copiado. Pégalo en el chat de WhatsApp.'); } catch (e) { toast('No se pudo copiar.'); }
   }
@@ -843,6 +852,8 @@
     var h = '<div class="sheet-head"><h2 id="sheetTitle">' + (base ? 'Editar persona' : 'Agregar persona') + '</h2>' + X + '</div>' +
       '<form id="fPer" novalidate style="display:flex;flex-direction:column;gap:14px">' +
       '<label class="f" for="pNombre">Nombre<input class="in" id="pNombre" value="' + esc(P.nombre) + '" autocomplete="off"></label>' +
+      '<div class="row"><label class="f" for="pMon">Ver también en<select class="in" id="pMon">' + [['', 'Solo soles'], ['SEK', 'Coronas suecas (kr)'], ['EUR', 'Euros (€)'], ['USD', 'Dólares (US$)']].map(function (o) { return '<option value="' + o[0] + '"' + ((P.moneda_ref || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
+      '<label class="f" for="pTc">1 sol =<input class="in" id="pTc" inputmode="decimal" placeholder="Ej.: 2.88" value="' + esc(P.tc_ref || '') + '"></label></div>' +
       '<div class="f">Color<div class="colors" role="group">' + COLORS.map(function (c) { return '<button type="button" data-pcolor="' + c + '" style="--c:' + c + '" aria-pressed="' + (P.color === c) + '" aria-label="Color ' + c + '"></button>'; }).join('') + '</div></div>' +
       '<div class="seg" role="group" aria-label="Tipo"><button type="button" data-ptipo="paga" aria-pressed="' + (P.tipo === 'paga') + '">Paga su parte</button><button type="button" data-ptipo="cubierta" aria-pressed="' + (P.tipo === 'cubierta') + '">La cubren otras</button></div>' +
       (P.tipo === 'cubierta' ? '<div class="note">Quién la cubre se cambia en Personas → <b>Cambiar porcentajes</b>.</div>' : '') +
@@ -856,7 +867,9 @@
   async function guardarPersona() {
     P.nombre = document.getElementById('pNombre').value.trim();
     if (!P.nombre) { toast('Escribe el nombre.'); return; }
-    var row = { nombre: P.nombre, tipo: P.tipo, color: P.color };
+    var mon = document.getElementById('pMon').value, tcr = num(document.getElementById('pTc').value);
+    if (mon && !(tcr > 0)) { toast('Escribe cuánto vale 1 sol en esa moneda.'); return; }
+    var row = { nombre: P.nombre, tipo: P.tipo, color: P.color, moneda_ref: mon || null, tc_ref: mon ? tcr : null };
     if (P.tipo === 'cubierta' && !Object.keys(P.cobertura || {}).length) {
       var otra = cubiertas().find(function (c) { return c.id !== P.id; });
       if (otra) { row.cobertura = otra.cobertura || {}; row.cobertura_otros = otra.cobertura_otros || {}; }
