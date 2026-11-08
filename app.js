@@ -381,7 +381,7 @@
       (x.cubre > 0.004 ? '<div class="r sub"><span>Tu ' + (misma && me && pb[me.id] ? pctTxt(pb[me.id]) : 'parte') + ' de ' + esc(nombresCub()) + '</span><span>' + fmt(x.cubre) + '</span></div>' : '') +
       (x.env > 0.004 ? '<div class="r"><span>Ya pasaste a tus hermanas</span><b>+ ' + fmt(x.env) + '</b></div>' : '') +
       (x.rec > 0.004 ? '<div class="r"><span>Ya te pasaron</span><b>− ' + fmt(x.rec) + '</b></div>' : '') +
-      '<div class="r sub" style="padding-left:0;font-size:13px"><span>Con lo anotado hasta hoy. Va a cambiar cuando anoten lo que falta.</span></div>' +
+      '<div style="font-size:13px;color:var(--on-jungle-3)">Con lo anotado hasta hoy. Va a cambiar cuando anoten lo que falta.</div>' +
       '</div></header><div class="pad" style="display:flex;flex-direction:column;gap:18px">';
 
     var pc = proxCheckin();
@@ -391,7 +391,7 @@
     }
 
     var l = Calc.liquidar(o);
-    h += '<section class="section"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h2>Para quedar a mano</h2><button class="more" type="button" data-cuentas="1">Ver el detalle ›</button></div><div class="card" style="padding:4px 14px">' + (l.length ? l.map(function (t) {
+    h += '<section class="section"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px"><h2>Para quedar a mano</h2><button class="more" type="button" data-cuentas="1" style="white-space:nowrap">Ver detalle ›</button></div><div class="card" style="padding:4px 14px">' + (l.length ? l.map(function (t) {
       var txt, btn, quien;
       if (me && t.a === me.id) { quien = per(t.de); txt = esc(nom(t.de)) + ' te pasa'; btn = 'Ya me pagó'; }
       else if (me && t.de === me.id) { quien = per(t.a); txt = 'Le pasas a ' + esc(nom(t.a)); btn = 'Ya le pagué'; }
