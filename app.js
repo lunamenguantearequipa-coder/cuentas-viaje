@@ -376,11 +376,12 @@
       '<div class="big num">' + fmt(Math.abs(n)) + '</div></div>' +
       '<div class="breakdown num"><div class="t">De dónde sale</div>' +
       '<div class="r"><span>Pagaste</span><b>' + fmt(x.pago) + '</b></div>' +
-      '<div class="r"><span>Te toca</span><b>− ' + fmt(x.toca) + '</b></div>' +
+      '<div class="r"><span>Tu parte de lo gastado hasta hoy</span><b>− ' + fmt(x.toca) + '</b></div>' +
       '<div class="r sub"><span>Lo tuyo</span><span>' + fmt(x.propio) + '</span></div>' +
       (x.cubre > 0.004 ? '<div class="r sub"><span>Tu ' + (misma && me && pb[me.id] ? pctTxt(pb[me.id]) : 'parte') + ' de ' + esc(nombresCub()) + '</span><span>' + fmt(x.cubre) + '</span></div>' : '') +
       (x.env > 0.004 ? '<div class="r"><span>Ya pasaste a tus hermanas</span><b>+ ' + fmt(x.env) + '</b></div>' : '') +
       (x.rec > 0.004 ? '<div class="r"><span>Ya te pasaron</span><b>− ' + fmt(x.rec) + '</b></div>' : '') +
+      '<div class="r sub" style="padding-left:0;font-size:13px"><span>Con lo anotado hasta hoy. Va a cambiar cuando anoten lo que falta.</span></div>' +
       '</div></header><div class="pad" style="display:flex;flex-direction:column;gap:18px">';
 
     var pc = proxCheckin();
@@ -528,7 +529,7 @@
     var h = phead('Personas', cubs.length ? 'Cada una paga lo suyo. A ' + esc(nombresCub()) + ' los cubrimos entre todas.' : 'Cada una paga lo suyo.') + '<div class="pad" style="display:flex;flex-direction:column;gap:10px">';
     h += pagan().map(function (p) {
       var x = o[p.id] || { pago: 0, toca: 0, net: 0 }, n = r2(x.net);
-      return '<button class="pcard" type="button" data-pver="' + p.id + '">' + av(p) + '<span class="mid"><b>' + esc(p.nombre) + (me && me.id === p.id ? ' <span class="badge you">Tú</span>' : '') + '</b><span class="num">Pagó ' + fmt(x.pago) + ' · Le toca ' + fmt(x.toca) + '</span></span>' +
+      return '<button class="pcard" type="button" data-pver="' + p.id + '">' + av(p) + '<span class="mid"><b>' + esc(p.nombre) + (me && me.id === p.id ? ' <span class="badge you">Tú</span>' : '') + '</b><span class="num">Pagó ' + fmt(x.pago) + ' · Su parte hasta hoy ' + fmt(x.toca) + '</span></span>' +
         '<span class="end"><span>' + (n > 0.009 ? 'Le deben' : n < -0.009 ? 'Debe' : 'A mano') + '</span><b class="num ' + (n > 0.009 ? 'good' : n < -0.009 ? 'bad' : '') + '">' + fmt(Math.abs(n)) + '</b></span></button>';
     }).join('');
     if (cubs.length) {
@@ -776,12 +777,12 @@
       return '<div style="display:flex;flex-direction:column;gap:4px;padding-bottom:10px;border-bottom:1px solid var(--line)">' +
         '<div style="display:flex;align-items:center;gap:10px">' + av(x, 30) + '<b style="flex:1;font-size:17px">' + esc(x.nombre) + '</b><b class="num ' + (n > 0.009 ? 'good' : n < -0.009 ? 'bad' : '') + '" style="font-family:var(--display);font-size:18px">' + (n > 0.009 ? 'le deben ' : n < -0.009 ? 'debe ' : 'a mano ') + fmt(Math.abs(n)) + '</b></div>' +
         '<dl class="kv num" style="font-size:14px"><dt>Pagó</dt><dd>' + fmt(v.pago) + '</dd>' +
-        '<dt>Le toca (lo suyo ' + fmt(v.propio) + ' + su ' + pctTxt(pb[x.id] || 0) + ' de ' + esc(nombresCub()) + ' ' + fmt(v.cubre) + ')</dt><dd>− ' + fmt(v.toca) + '</dd>' +
+        '<dt>Su parte de lo gastado hasta hoy (lo suyo ' + fmt(v.propio) + ' + su ' + pctTxt(pb[x.id] || 0) + ' de ' + esc(nombresCub()) + ' ' + fmt(v.cubre) + ')</dt><dd>− ' + fmt(v.toca) + '</dd>' +
         (v.env > 0.004 ? '<dt>Ya les pasó a sus hermanas</dt><dd>+ ' + fmt(v.env) + '</dd>' : '') +
         (v.rec > 0.004 ? '<dt>Ya le pasaron</dt><dd>− ' + fmt(v.rec) + '</dd>' : '') +
         '<dt><b>Saldo</b></dt><dd><b>' + (n >= 0 ? '+ ' : '− ') + fmt(Math.abs(n)) + '</b></dd></dl></div>';
     }).join('');
-    h += '<span class="xs muted">Saldo = pagó − le toca + lo que pasó − lo que le pasaron. Positivo: le deben. Negativo: debe.</span></div>';
+    h += '<span class="xs muted">Saldo = pagó − su parte + lo que pasó − lo que le pasaron. Positivo: le deben. Negativo: debe. Es lo anotado hasta hoy: va a cambiar cuando anoten Tarapoto, comidas y tours que faltan.</span></div>';
     h += '<div class="card"><b>Para quedar a mano</b>' + (D.liq.length ? D.liq.map(function (t) { return '<div class="num" style="font-size:15px">' + esc(nom(t.de)) + ' le pasa a ' + esc(nom(t.a)) + ' <b>' + fmt(t.v) + '</b></div>'; }).join('') : '<span>Están a mano 🎉</span>') + '</div>';
 
     // 2) Quién pagó qué
@@ -806,7 +807,7 @@
         }).join('') + '</div>' + (f.papas > 0.004 ? '<span class="xs muted num">' + esc(cap(nombresCub())) + ' cuentan ' + fmt(f.papas) + ' en este gasto.</span>' : '') + '</div>';
     }).join('');
     h += '<div class="card" style="background:var(--jungle);color:var(--on-jungle)"><b>Totales</b><div class="tri" style="' + cols + '">' + ps.map(function (x) { return '<div><span class="xs" style="color:var(--on-jungle-3)">' + esc(x.nombre) + '</span><b class="num">' + fmt(o[x.id].toca) + '</b></div>'; }).join('') + '</div>' +
-      '<span class="xs num" style="color:var(--on-jungle-2)">Gastado en total ' + fmt(D.total) + ' = suma de lo que le toca a las tres ' + fmt(D.sumaToca) + (Math.abs(D.total - D.sumaToca) < 0.05 ? ' ✓' : ' ⚠️') + '</span></div>';
+      '<span class="xs num" style="color:var(--on-jungle-2)">Gastado en total ' + fmt(D.total) + ' = suma de la parte de las tres ' + fmt(D.sumaToca) + (Math.abs(D.total - D.sumaToca) < 0.05 ? ' ✓' : ' ⚠️') + '</span></div>';
 
     // 4) Pagos entre hermanas
     h += '<h2 class="h2">4 · Plata que ya se pasaron</h2><div class="card">' + (D.pagos.length ? D.pagos.map(function (m) { return '<div class="ln"><span class="muted xs">' + esc(fdate(m.fecha)) + '</span><span class="dd">' + esc(nom(m.de_id)) + ' → ' + esc(nom(m.a_id)) + (m.nota ? ' · ' + esc(m.nota) : '') + '</span><b class="num">' + fmt(m.monto) + '</b></div>'; }).join('') : '<span class="muted">Todavía ninguno.</span>') + '</div>';
@@ -815,7 +816,7 @@
   }
   async function copiarCuentas() {
     var D = datosCuentas(), o = D.o, t = ['🌿 *Cuentas del viaje* (al ' + fdate(hoy()) + ')', ''];
-    D.ps.forEach(function (x) { var v = o[x.id], n = r2(v.net); t.push('*' + x.nombre + '*: pagó ' + fmt(v.pago) + ', le toca ' + fmt(v.toca) + ' (lo suyo ' + fmt(v.propio) + ' + ' + nombresCub() + ' ' + fmt(v.cubre) + ')' + (v.env > 0.004 ? ', pasó ' + fmt(v.env) : '') + (v.rec > 0.004 ? ', le pasaron ' + fmt(v.rec) : '') + ' → ' + (n > 0.009 ? 'le deben ' : n < -0.009 ? 'debe ' : 'a mano ') + fmt(Math.abs(n))); });
+    D.ps.forEach(function (x) { var v = o[x.id], n = r2(v.net); t.push('*' + x.nombre + '*: pagó ' + fmt(v.pago) + ', su parte hasta hoy ' + fmt(v.toca) + ' (lo suyo ' + fmt(v.propio) + ' + ' + nombresCub() + ' ' + fmt(v.cubre) + ')' + (v.env > 0.004 ? ', pasó ' + fmt(v.env) : '') + (v.rec > 0.004 ? ', le pasaron ' + fmt(v.rec) : '') + ' → ' + (n > 0.009 ? 'le deben ' : n < -0.009 ? 'debe ' : 'a mano ') + fmt(Math.abs(n))); });
     t.push('', '*Para quedar a mano:*'); D.liq.forEach(function (z) { t.push('• ' + nom(z.de) + ' → ' + nom(z.a) + ': ' + fmt(z.v)); });
     t.push('', 'Total gastado: ' + fmt(D.total) + '. El detalle gasto por gasto está en la app: Personas → Ver cuentas detalladas.');
     try { await navigator.clipboard.writeText(t.join('\n')); toast('Copiado. Pégalo en el chat de WhatsApp.'); } catch (e) { toast('No se pudo copiar.'); }
@@ -826,7 +827,7 @@
     var p = per(id); if (!p) return;
     var o = Calc.saldos(S.viaje, S.personas, S.movs), x = o[id] || { pago: 0, toca: 0, propio: 0, cubre: 0, env: 0, rec: 0, net: 0 }, n = r2(x.net);
     var h = '<div class="sheet-head"><div style="display:flex;align-items:center;gap:10px">' + av(p, 40) + '<h2 id="sheetTitle">' + esc(p.nombre) + '</h2></div>' + X + '</div>' +
-      '<div class="card"><dl class="kv num"><dt>Pagó</dt><dd>' + fmt(x.pago) + '</dd><dt>Le toca</dt><dd>− ' + fmt(x.toca) + '</dd>' +
+      '<div class="card"><dl class="kv num"><dt>Pagó</dt><dd>' + fmt(x.pago) + '</dd><dt>Su parte hasta hoy</dt><dd>− ' + fmt(x.toca) + '</dd>' +
       '<dt class="sub">Lo suyo</dt><dd class="sub">' + fmt(x.propio) + '</dd>' +
       (x.cubre > 0.004 ? '<dt class="sub">Por ' + esc(nombresCub()) + '</dt><dd class="sub">' + fmt(x.cubre) + '</dd>' : '') +
       (x.env > 0.004 ? '<dt>Pasó a hermanas</dt><dd>+ ' + fmt(x.env) + '</dd>' : '') + (x.rec > 0.004 ? '<dt>Recibió</dt><dd>− ' + fmt(x.rec) + '</dd>' : '') +
